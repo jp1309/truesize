@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manhattan vs Quito — Tamaño real</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1923; color: #e2e8f0; }
+
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    #header {
+      background: #0f1923;
+      border-bottom: 1px solid #1e3a5f;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    #header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.3px; color: #f0f4f8; }
+    #header .sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+    #controls {
+      background: #111d2c;
+      border-bottom: 1px solid #1e3a5f;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      padding: 7px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.15s;
+      letter-spacing: 0.2px;
+    }
+    .btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+
+    .btn-red    { background: #c0392b; color: #fff; }
+    .btn-teal   { background: #16a085; color: #fff; }
+    .btn-orange { background: #d35400; color: #fff; }
+    .btn-blue   { background: #2980b9; color: #fff; }
+
+    .divider { width: 1px; height: 24px; background: #1e3a5f; margin: 0 4px; }
+
+    .hint { font-size: 11px; color: #4a6580; margin-left: 4px; }
+
+    #map-wrapper { position: relative; flex: 1; min-height: 0; }
+    #map { width: 100%; height: 100%; }
+
+    /* Info card */
+    #card {
+      position: absolute;
+      bottom: 26px;
+      right: 12px;
+      z-index: 800;
+      background: rgba(10, 18, 30, 0.93);
+      border: 1px solid #1e3a5f;
+      border-radius: 10px;
+      padding: 14px 16px;
+      min-width: 215px;
+      font-size: 12px;
+      backdrop-filter: blur(6px);
+    }
+    #card h3 { font-size: 13px; font-weight: 700; color: #f0f4f8; margin-bottom: 10px; border-bottom: 1px solid #1e3a5f; padding-bottom: 6px; }
+    .row { display: flex; justify-content: space-between; align-items: center; margin: 5px 0; }
+    .row .lbl { color: #7a92a8; }
+    .row .val { font-weight: 700; }
+    .c-red    { color: #e74c3c; }
+    .c-teal   { color: #1abc9c; }
+    .c-orange { color: #e67e22; }
+
+    .legend { margin-top: 10px; padding-top: 8px; border-top: 1px solid #1e3a5f; display: flex; flex-direction: column; gap: 5px; }
+    .leg-item { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #94a3b8; }
+    .leg-swatch { width: 14px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+    /* Scale badge */
+    #scale-badge {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 800;
+      background: rgba(10,18,30,0.88);
+      border: 1px solid #2980b9;
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      color: #90cdf4;
+      font-weight: 600;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* Leaflet overrides */
+    .leaflet-popup-content-wrapper { background: #0f1923; color: #e2e8f0; border: 1px solid #1e3a5f; border-radius: 8px; }
+    .leaflet-popup-tip { background: #0f1923; }
+    .leaflet-popup-content { font-size: 13px; line-height: 1.6; }
+    .leaflet-popup-content b { color: #f0f4f8; }
+
+    /* Etiquetas de subzonas (tooltip permanente) */
+    .leaflet-tooltip.subdiv-label {
+      background: rgba(8, 15, 26, 0.82);
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: 4px;
+      color: #f0f4f8;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 5px;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+      letter-spacing: 0.2px;
+    }
+    .leaflet-tooltip.subdiv-label::before { display: none; } /* sin flecha */
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div>
+      <h1>Manhattan vs Quito &mdash; Comparación de tamaño real</h1>
+      <div class="sub">Proyección corregida por latitud · estilo TrueSize.com · OpenStreetMap</div>
+    </div>
+  </div>
+  <div id="controls">
+    <button class="btn btn-red"    onclick="flyToNYC()">Nueva York</button>
+    <button class="btn btn-teal"   onclick="flyTo('quito')">Quito</button>
+    <div class="divider"></div>
+    <button class="btn btn-orange" onclick="toggleGroup('nyc')">Superponer NYC en Quito</button>
+    <button class="btn" style="background:#1565c0;color:#fff" onclick="toggleGroup('dc')">Superponer DC en Quito</button>
+    <button class="btn btn-blue"   onclick="showBoth()">Ver ambos</button>
+    <div class="divider"></div>
+    <button class="btn" style="background:#2e7d32;color:#fff" onclick="flyTo('santiago')">Santiago de Chile</button>
+    <button class="btn" style="background:#1b5e20;color:#fff" onclick="toggleGroupAt('dc_stgo','santiago')">Superponer DC en Santiago</button>
+    <div class="divider"></div>
+    <button class="btn" style="background:#546e7a;color:#fff" onclick="resetAll()">↺ Resetear posición</button>
+    <span class="hint">Arrastra las ciudades de forma independiente · cada una tiene su propio drag</span>
+  </div>
+  <div id="map-wrapper">
+    <div id="map"></div>
+    <div id="scale-badge" id="view-label">Vista global</div>
+  </div>
+</div>
+
+<script>
+// ─── Map ─────────────────────────────────────────────────────────────────────
+const map = L.map('map', { center: [20, -74], zoom: 3, zoomControl: true });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: 'abcd', maxZoom: 19
+}).addTo(map);
+
+// ─── Referencias ─────────────────────────────────────────────────────────────
+const QUITO_CENTER    = [ -0.2290, -78.5249];
+const SANTIAGO_CENTER = [-33.4569, -70.6483];
+
+// ─── Proyección true-size ─────────────────────────────────────────────────────
+function toKm(bLat, bLon, lat, lon) {
+  const R = 6371;
+  return [
+    (lon - bLon) * (Math.PI/180) * R * Math.cos(bLat * Math.PI/180),
+    (lat - bLat) * (Math.PI/180) * R
+  ];
+}
+function fromKm(bLat, bLon, dx, dy) {
+  const R = 6371;
+  return [
+    bLat + (dy/R)*(180/Math.PI),
+    bLon + (dx/R)*(180/Math.PI) / Math.cos(bLat*Math.PI/180)
+  ];
+}
+// Proyectar un anillo GeoJSON [lon,lat][] desde su centro de origen a cualquier destino
+function projectRingTo(sourceCenter, targetCenter, ring) {
+  return ring.map(([lon, lat]) => {
+    const [dx, dy] = toKm(sourceCenter[0], sourceCenter[1], lat, lon);
+    return fromKm(targetCenter[0], targetCenter[1], dx, dy);
+  });
+}
+// Acceso directo para Quito (retrocompatible)
+function projectRingFrom(center, ring) {
+  return projectRingTo(center, QUITO_CENTER, ring);
+}
+
+// ─── Sistema genérico de grupos de overlay ────────────────────────────────────
+// Cada ciudad tiene su propio grupo con drag independiente
+const groups = {};
+
+function createGroup(id) {
+  groups[id] = { layers: [], original: [], markers: [], markerOrig: [], delta: { lat: 0, lng: 0 }, visible: false };
+}
+
+function applyGroupDelta(g) {
+  g.layers.forEach((layer, i) => {
+    const s = g.original[i].map(([lat, lng]) => [lat + g.delta.lat, lng + g.delta.lng]);
+    layer.setLatLngs([s]);
+  });
+  // Mover también los marcadores circulares de etiquetas
+  g.markers.forEach((marker, i) => {
+    const o = g.markerOrig[i];
+    marker.setLatLng([o[0] + g.delta.lat, o[1] + g.delta.lng]);
+  });
+}
+
+function addMarkerToGroup(id, marker, center) {
+  const g = groups[id];
+  g.markers.push(marker);
+  g.markerOrig.push([center[0], center[1]]);
+  if (g.visible) marker.addTo(map);
+  marker.on('mousedown', function(e) {
+    isDragging = true; activeGroup = g; dragStart = e.latlng;
+    map.dragging.disable(); map.getContainer().style.cursor = 'grabbing';
+    L.DomEvent.stop(e);
+  });
+}
+
+function addLayerToGroup(id, layer, coords) {
+  const g = groups[id];
+  g.original.push(coords.map(p => [p[0], p[1]]));
+  g.layers.push(layer);
+  if (g.visible) layer.addTo(map); // aparecer de inmediato si el grupo ya está visible
+  layer.on('mousedown', function(e) {
+    isDragging    = true;
+    activeGroup   = g;
+    dragStart     = e.latlng;
+    map.dragging.disable();
+    map.getContainer().style.cursor = 'grabbing';
+    L.DomEvent.stop(e);
+  });
+  layer.on('touchstart', function(e) {
+    if (e.touches.length !== 1) return;
+    isDragging  = true;
+    activeGroup = g;
+    dragStart   = map.mouseEventToLatLng(e.touches[0]);
+    map.dragging.disable();
+    L.DomEvent.stop(e);
+  }, { passive: false });
+}
+
+function showGroup(id) {
+  const g = groups[id];
+  g.layers.forEach(l  => { if (!map.hasLayer(l))  l.addTo(map); });
+  g.markers.forEach(m => { if (!map.hasLayer(m)) m.addTo(map); });
+  g.visible = true;
+}
+function hideGroup(id) {
+  const g = groups[id];
+  g.layers.forEach(l  => { if (map.hasLayer(l))  map.removeLayer(l); });
+  g.markers.forEach(m => { if (map.hasLayer(m)) map.removeLayer(m); });
+  g.visible = false;
+}
+function toggleGroup(id) {
+  if (groups[id].visible) {
+    hideGroup(id);
+    setLabel(`Overlay ${id.toUpperCase()} ocultado`);
+  } else {
+    showGroup(id);
+    map.flyTo(QUITO_CENTER, 10, { duration: 1.2 });
+    setLabel(`${id.toUpperCase()} superpuesto en Quito — arrastra para mover · tamaño real`);
+  }
+}
+
+// ─── Estado de drag ───────────────────────────────────────────────────────────
+let isDragging  = false;
+let activeGroup = null;
+let dragStart   = null;
+
+function initDrag() {
+  const container = map.getContainer();
+
+  map.on('mousemove', function(e) {
+    if (!isDragging || !dragStart || !activeGroup) return;
+    activeGroup.delta.lat += e.latlng.lat - dragStart.lat;
+    activeGroup.delta.lng += e.latlng.lng - dragStart.lng;
+    dragStart = e.latlng;
+    applyGroupDelta(activeGroup);
+  });
+
+  container.addEventListener('touchmove', function(e) {
+    if (!isDragging || e.touches.length !== 1 || !activeGroup) return;
+    e.preventDefault();
+    const ll = map.mouseEventToLatLng(e.touches[0]);
+    activeGroup.delta.lat += ll.lat - dragStart.lat;
+    activeGroup.delta.lng += ll.lng - dragStart.lng;
+    dragStart = ll;
+    applyGroupDelta(activeGroup);
+  }, { passive: false });
+
+  function stopDrag() {
+    if (!isDragging) return;
+    isDragging  = false;
+    activeGroup = null;
+    dragStart   = null;
+    map.dragging.enable();
+    map.getContainer().style.cursor = '';
+  }
+  map.on('mouseup', stopDrag);
+  map.on('mouseleave', stopDrag);
+  container.addEventListener('touchend', stopDrag);
+}
+
+// ─── Badge ────────────────────────────────────────────────────────────────────
+const badge = document.getElementById('scale-badge');
+function setLabel(t) { badge.textContent = t; }
+
+// ─── NYC — carga GeoJSON oficial ─────────────────────────────────────────────
+const NYC_CENTER = [40.7282, -73.9442];
+const NYC_STYLES = {
+  'Manhattan':     { color:'#a93226', fill:'#e74c3c' },
+  'The Bronx':     { color:'#6c3483', fill:'#9b59b6' },
+  'Brooklyn':      { color:'#1a5276', fill:'#2980b9' },
+  'Queens':        { color:'#1e8449', fill:'#27ae60' },
+  'Staten Island': { color:'#7d6608', fill:'#d4ac0d' },
+};
+
+createGroup('nyc');
+setLabel('Cargando NYC…');
+
+fetch('https://raw.githubusercontent.com/dwillis/nyc-maps/master/boroughs.geojson')
+  .then(r => r.json())
+  .then(data => {
+    data.features.forEach(feature => {
+      const name = feature.properties.BoroName;
+      const s    = NYC_STYLES[name] || { color:'#555', fill:'#888' };
+
+      L.geoJSON(feature, {
+        style: { color: s.color, fillColor: s.fill, fillOpacity: 0.50, weight: 2 }
+      }).bindPopup(`<b style="color:${s.fill}">${name}</b>`).addTo(map);
+
+      const geom  = feature.geometry;
+      const polys = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+      polys.forEach(rings => {
+        const projected = projectRingFrom(NYC_CENTER, rings[0]);
+        const layer = L.polygon(projected, {
+          color: s.color, fillColor: s.fill,
+          fillOpacity: 0.55, weight: 2, dashArray: '8 5', cursor: 'grab',
+        }).bindPopup(`<b style="color:${s.fill}">${name} — NYC</b><br>Tamaño real sobre Quito · arrastra para mover`);
+        addLayerToGroup('nyc', layer, projected);
+      });
+    });
+    setLabel('Cargando Washington D.C.…');
+    loadDC();
+  })
+  .catch(() => setLabel('⚠ Error cargando NYC GeoJSON'));
+
+// ─── Washington D.C. + Arlington + Sur de Montgomery County ──────────────────
+const DC_CENTER = [38.9072, -77.0369]; // referencia compartida para toda el área DC
+
+// Clip geométrico: recorta un anillo GeoJSON [lon,lat][] conservando solo lat <= maxLat
+// Algoritmo Sutherland-Hodgman para semiplano inferior
+function clipRingAtMaxLat(ring, maxLat) {
+  const inside    = p => p[1] <= maxLat;
+  const intersect = (a, b) => {
+    const t = (maxLat - a[1]) / (b[1] - a[1]);
+    return [a[0] + t * (b[0] - a[0]), maxLat];
+  };
+  const out = [];
+  const n   = ring.length - 1;
+  for (let i = 0; i < n; i++) {
+    const a = ring[i], b = ring[(i + 1) % n];
+    if (inside(a)) { out.push(a); if (!inside(b)) out.push(intersect(a, b)); }
+    else if (inside(b)) out.push(intersect(a, b));
+  }
+  if (out.length > 2) out.push(out[0]);
+  return out;
+}
+
+const DC_AREAS = [
+  {
+    name: 'Washington D.C.',
+    url:  'https://raw.githubusercontent.com/unitedstates/districts/gh-pages/states/DC/shape.geojson',
+    isRawGeom: true,
+    color: '#1565c0', fill: '#42a5f5',
+    popup: 'Washington D.C.<br>Área: ~159 km²',
+  },
+  {
+    name: 'Arlington County',
+    url:  'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1/query?where=GEOID%3D%2751013%27&outFields=NAME&f=geojson&outSR=4326',
+    isRawGeom: false,
+    color: '#00695c', fill: '#26c6da',
+    popup: 'Arlington County, VA<br>Área: ~67 km²',
+  },
+  {
+    name: 'Montgomery County (sur)',
+    url:  'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1/query?where=GEOID%3D%2724031%27&outFields=NAME&f=geojson&outSR=4326',
+    isRawGeom: false,
+    clipLat: 39.10,   // cortar por encima de esta latitud (Chevy Chase, Bethesda, Silver Spring, Wheaton)
+    color: '#6a1b9a', fill: '#ab47bc',
+    popup: 'Montgomery County Sur, MD<br>(Chevy Chase · Bethesda · Silver Spring · Wheaton)',
+  },
+];
+
+createGroup('dc');
+createGroup('dc_stgo');
+
+// ─── Subdivisiones de Arlington y Montgomery County Sur ───────────────────────
+
+// Paletas de color (variaciones de los colores padre de cada área)
+const SUBDIV_PALETTE = {
+  arlington:  ['#00e5ff','#00bcd4','#00acc1','#0097a7','#006064','#4dd0e1','#b2ebf2','#26c6da','#80deea','#e0f7fa'],
+  montgomery: ['#ce93d8','#ba68c8','#9c27b0','#7b1fa2','#e040fb','#8e24aa','#d500f9','#e1bee7','#ab47bc','#f8bbd0'],
+};
+
+// Centroide aproximado de un anillo GeoJSON [lon,lat][]
+function getApproxCentroid(ring) {
+  const pts = ring.slice(0, -1); // excluir punto de cierre
+  let latSum = 0, lonSum = 0;
+  pts.forEach(([lon, lat]) => { lonSum += lon; latSum += lat; });
+  return { lat: latSum / pts.length, lon: lonSum / pts.length };
+}
+
+// Centroide de un array [[lat,lng],...] en formato Leaflet
+function latlngsCenter(pts) {
+  const n = pts.length;
+  return [ pts.reduce((s,p)=>s+p[0],0)/n, pts.reduce((s,p)=>s+p[1],0)/n ];
+}
+
+// Añade una subdivisión: polígono suave en mapa real + círculo hover en centroide
+// Los overlays (Quito/Santiago) también llevan polígono + círculo arrastrable
+function addSubdivLayer(geom, name, color, areaLabel, clipLatVal) {
+  if (!geom) return;
+
+  let srcPolys = geom.type === 'MultiPolygon' ? geom.coordinates :
+                 geom.type === 'Polygon'       ? [geom.coordinates] : null;
+  if (!srcPolys) return;
+
+  if (clipLatVal !== undefined) {
+    srcPolys = srcPolys.map(rings => {
+      const c = clipRingAtMaxLat(rings[0], clipLatVal);
+      return c.length >= 3 ? [c] : null;
+    }).filter(Boolean);
+    if (srcPolys.length === 0) return;
+  }
+
+  const popup = `<b style="color:${color}">${name}</b><br><span style="color:#94a3b8;font-size:11px">${areaLabel}</span>`;
+  const tip   = { permanent: false, direction: 'top', className: 'subdiv-label', offset: [0, -4] };
+  const circleOpts = { radius: 7, color, fillColor: color, fillOpacity: 0.9, weight: 2, cursor: 'grab' };
+
+  // Acumular todos los puntos de todos los anillos para calcular UN solo centroide
+  const allLatLngs = [];
+  const allOutersQ = [];
+  const allOutersS = [];
+
+  srcPolys.forEach(rings => {
+    const outer = rings[0];
+    if (!outer || outer.length < 3) return;
+
+    const latlngs = outer.map(([lon, lat]) => [lat, lon]);
+    allLatLngs.push(...latlngs);
+
+    // ── Mapa real: polígono tenue ─────────────────────────────────────────────
+    L.polygon(latlngs, { color, fillColor: color, fillOpacity: 0.20, weight: 1.2 })
+      .bindPopup(popup).addTo(map);
+
+    // ── Overlay → Quito ───────────────────────────────────────────────────────
+    const projQ = projectRingTo(DC_CENTER, QUITO_CENTER, outer);
+    if (projQ.length >= 3) {
+      allOutersQ.push(projQ);
+      addLayerToGroup('dc',
+        L.polygon(projQ, { color, fillColor: color, fillOpacity: 0.35, weight: 1.2, dashArray: '4 3', cursor: 'grab' })
+          .bindPopup(popup), projQ);
+    }
+
+    // ── Overlay → Santiago ────────────────────────────────────────────────────
+    const projS = projectRingTo(DC_CENTER, SANTIAGO_CENTER, outer);
+    if (projS.length >= 3) {
+      allOutersS.push(projS);
+      addLayerToGroup('dc_stgo',
+        L.polygon(projS, { color, fillColor: color, fillOpacity: 0.35, weight: 1.2, dashArray: '4 3', cursor: 'grab' })
+          .bindPopup(popup), projS);
+    }
+  });
+
+  // Un único círculo por subdivisión, en el centroide global de todos sus polígonos
+  if (allLatLngs.length > 0) {
+    const center = latlngsCenter(allLatLngs);
+    L.circleMarker(center, circleOpts)
+      .bindTooltip(name, tip).bindPopup(popup).addTo(map);
+  }
+  if (allOutersQ.length > 0) {
+    const centerQ = latlngsCenter(allOutersQ.flat());
+    addMarkerToGroup('dc',
+      L.circleMarker(centerQ, circleOpts).bindTooltip(name, tip).bindPopup(popup),
+      centerQ);
+  }
+  if (allOutersS.length > 0) {
+    const centerS = latlngsCenter(allOutersS.flat());
+    addMarkerToGroup('dc_stgo',
+      L.circleMarker(centerS, circleOpts).bindTooltip(name, tip).bindPopup(popup),
+      centerS);
+  }
+}
+
+async function loadSubdivisions() {
+  // Layer 4 = Incorporated Places, Layer 5 = CDPs  (verificado con metadata del servicio)
+  const TIGER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer';
+  const OVP   = 'https://overpass-api.de/api/interpreter?data=';
+
+  function polyFeats(res, nameField) {
+    if (res.status !== 'fulfilled' || !res.value?.features) return [];
+    return res.value.features
+      .filter(f => f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon')
+      .map(f => ({ geometry: f.geometry, name: (f.properties?.[nameField] || '').trim() }))
+      .filter(f => f.name);
+  }
+
+  function tigerQ(layer, where, bbox) {
+    const p = new URLSearchParams({ where, outFields: 'NAME,GEOID', returnGeometry: 'true', f: 'geojson', outSR: '4326' });
+    if (bbox) { p.set('geometry', bbox); p.set('geometryType','esriGeometryEnvelope');
+                p.set('inSR','4326');    p.set('spatialRel','esriSpatialRelIntersects'); }
+    return fetch(`${TIGER}/${layer}/query?${p}`).then(r => r.json());
+  }
+
+  function ovpQ(swne, types) {
+    const q = `[out:geojson][timeout:30];\n(relation["place"~"${types}"](${swne});\nway["place"~"${types}"]["name"](${swne}););\nout geom;`;
+    return fetch(OVP + encodeURIComponent(q)).then(r => r.json());
+  }
+
+  // ── Arlington: ZCTAs con nombres de barrio ───────────────────────────────────
+  const ARL_NAMES = {
+    '22201': 'Clarendon / Courthouse', '22202': 'Crystal City',
+    '22203': 'Ballston',               '22204': 'Columbia Pike',
+    '22205': 'Westover',               '22206': 'Shirlington',
+    '22207': 'N. Arlington',           '22209': 'Rosslyn',
+    '22213': 'Chesterbrook',
+  };
+  const ZCTA = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/PUMA_TAD_TAZ_UGA_ZCTA/MapServer';
+
+  // Montgomery County + Arlington en paralelo
+  const BBOX = '-77.35,38.85,-77.00,39.10';
+  const ARL_BBOX = '-77.20,38.82,-77.00,38.95';
+
+  const [mCdp, mInc, mOvp, arlZcta] = await Promise.allSettled([
+    tigerQ(5, "GEOID LIKE '24%'", BBOX),   // CDPs de Maryland (Layer 5)
+    tigerQ(4, "GEOID LIKE '24%'", BBOX),   // Municipios de Maryland (Layer 4)
+    ovpQ('38.87,-77.35,39.10,-77.00', 'city|town|suburb|neighbourhood'),  // OSM
+    // Arlington ZCTAs (Layer 1 del servicio ZCTA, verificado)
+    fetch(`${ZCTA}/1/query?` + new URLSearchParams({
+      geometry: ARL_BBOX, geometryType: 'esriGeometryEnvelope',
+      inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+      outFields: 'ZCTA5,GEOID', returnGeometry: 'true', f: 'geojson', outSR: '4326',
+    })).then(r => r.json()),
+  ]);
+
+  // Procesar ZCTAs de Arlington → círculo con nombre de barrio
+  const arlFeats = (arlZcta.status === 'fulfilled' ? arlZcta.value?.features || [] : [])
+    .filter(f => f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon');
+  console.log(`Arlington: ${arlFeats.length} ZCTAs`);
+  const arlSeen = new Set();
+  arlFeats.forEach((feat, i) => {
+    const zip  = feat.properties?.ZCTA5 || '';
+    const name = ARL_NAMES[zip];
+    if (!name || arlSeen.has(name)) return;   // ignorar ZIPs sin nombre amigable
+    arlSeen.add(name);
+    addSubdivLayer(feat.geometry, name,
+      SUBDIV_PALETTE.arlington[i % SUBDIV_PALETTE.arlington.length], 'Arlington County, VA');
+  });
+
+  function inMont(geom) {
+    const polys = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+    const c = getApproxCentroid(polys[0][0]);
+    return c.lat >= 38.87 && c.lat <= 39.11 && c.lon >= -77.35 && c.lon <= -77.00;
+  }
+
+  const mCdpPolys = polyFeats(mCdp, 'NAME').filter(f => inMont(f.geometry));
+  const mIncPolys = polyFeats(mInc, 'NAME').filter(f => inMont(f.geometry));
+  const mOsmPolys = polyFeats(mOvp, 'name').filter(f => inMont(f.geometry));
+  console.log(`Montgomery: ${mCdpPolys.length} CDPs, ${mIncPolys.length} Incorporated, ${mOsmPolys.length} OSM`);
+
+  // OSM primero (Bethesda/Silver Spring si existen en OSM), luego oficiales Census
+  // Pre-poblar seen con nombres de Arlington para evitar duplicados del bbox compartido
+  const seen = new Set(Object.values(ARL_NAMES)); let idx = 0;
+  [...mOsmPolys, ...mCdpPolys, ...mIncPolys].forEach(f => {
+    const name = f.name.replace(/\s+CDP$/i, '').trim();
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    addSubdivLayer(f.geometry, name,
+      SUBDIV_PALETTE.montgomery[idx++ % SUBDIV_PALETTE.montgomery.length],
+      'Montgomery County Sur, MD', 39.10);
+  });
+  console.log(`Montgomery: ${seen.size} comunidades cargadas`);
+}
+
+function loadDC() {
+  Promise.all(DC_AREAS.map(a => fetch(a.url).then(r => r.json())))
+    .then(results => {
+      results.forEach((data, i) => {
+        const a    = DC_AREAS[i];
+        // Extraer geometría según formato del archivo
+        const geom = a.isRawGeom ? data : data.features[0].geometry;
+
+        // ── Ubicación real en el mapa ────────────────────────────────────────
+        // Si tiene clipLat, mostramos solo los polígonos recortados en el mapa real
+        let displayGeom = geom;
+        if (a.clipLat) {
+          const srcPolys = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+          const clippedCoords = srcPolys.map(rings => {
+            const clipped = clipRingAtMaxLat(rings[0], a.clipLat);
+            return clipped.length >= 3 ? [clipped] : null;
+          }).filter(Boolean);
+          displayGeom = { type: 'MultiPolygon', coordinates: clippedCoords };
+        }
+        L.geoJSON({ type:'Feature', geometry: displayGeom, properties:{} }, {
+          style: { color: a.color, fillColor: a.fill, fillOpacity: 0.50, weight: 2 }
+        }).bindPopup(`<b style="color:${a.fill}">${a.popup}</b><br>Latitud: ~38.9° N`).addTo(map);
+
+        // ── Overlays proyectados (Quito + Santiago, mismo DC_CENTER → posición relativa preservada)
+        const polys = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+        polys.forEach(rings => {
+          const rawRing = a.clipLat ? clipRingAtMaxLat(rings[0], a.clipLat) : rings[0];
+          if (rawRing.length < 3) return;
+
+          // → Quito
+          const projQ  = projectRingTo(DC_CENTER, QUITO_CENTER, rawRing);
+          const layerQ = L.polygon(projQ, {
+            color: a.color, fillColor: a.fill,
+            fillOpacity: 0.55, weight: 2, dashArray: '8 5', cursor: 'grab',
+          }).bindPopup(`<b style="color:${a.fill}">${a.name}</b><br>Tamaño real sobre Quito · arrastra para mover`);
+          addLayerToGroup('dc', layerQ, projQ);
+
+          // → Santiago
+          const projS  = projectRingTo(DC_CENTER, SANTIAGO_CENTER, rawRing);
+          const layerS = L.polygon(projS, {
+            color: a.color, fillColor: a.fill,
+            fillOpacity: 0.55, weight: 2, dashArray: '8 5', cursor: 'grab',
+          }).bindPopup(`<b style="color:${a.fill}">${a.name}</b><br>Tamaño real sobre Santiago · arrastra para mover`);
+          addLayerToGroup('dc_stgo', layerS, projS);
+        });
+      });
+
+      initDrag();
+      // Cargar subdivisiones en paralelo (no bloquea el mapa)
+      loadSubdivisions().catch(err => console.warn('Error cargando subdivisiones:', err));
+      setTimeout(showBoth, 200);
+      setLabel('Listo — cargando subdivisiones de Arlington y Montgomery…');
+    })
+    .catch(err => {
+      console.warn('Error cargando DC/Arlington:', err);
+      initDrag();
+      setTimeout(showBoth, 200);
+      setLabel('⚠ Error cargando algunos datos');
+    });
+}
+
+// ─── Controles ────────────────────────────────────────────────────────────────
+function hideAll() {
+  Object.keys(groups).forEach(id => hideGroup(id));
+}
+
+function flyToNYC() {
+  hideAll();
+  map.flyToBounds(L.latLngBounds(L.latLng(40.47,-74.27), L.latLng(40.93,-73.68)),
+    { padding:[30,30], duration:1.5 });
+  setLabel('Nueva York — 5 boroughs · datos oficiales');
+}
+function flyTo(dest) {
+  hideAll();
+  if (dest === 'quito') {
+    map.flyTo(QUITO_CENTER, 12, { duration: 1.4 });
+    setLabel('Quito — Lat 0.2° S');
+  } else if (dest === 'santiago') {
+    map.flyTo(SANTIAGO_CENTER, 11, { duration: 1.5 });
+    setLabel('Santiago de Chile — Lat 33.5° S');
+  }
+}
+// Muestra un overlay y vuela a la ciudad destino
+function toggleGroupAt(id, dest) {
+  if (groups[id].visible) {
+    hideGroup(id);
+    setLabel(`Overlay ${id.toUpperCase()} ocultado`);
+  } else {
+    showGroup(id);
+    if (dest === 'santiago') {
+      map.flyTo(SANTIAGO_CENTER, 11, { duration: 1.3 });
+      setLabel('DC · Arlington · Montgomery superpuestos en Santiago — arrastra para mover');
+    } else {
+      map.flyTo(QUITO_CENTER, 10, { duration: 1.2 });
+      setLabel('DC superpuesto en Quito — arrastra para mover');
+    }
+  }
+}
+function showBoth() {
+  hideAll();
+  map.flyToBounds(L.latLngBounds(L.latLng(-0.55,-79.5), L.latLng(41.1,-73.3)),
+    { padding:[40,40], duration:1.6 });
+  setLabel('Vista comparativa — Nueva York · Washington D.C. · Quito');
+}
+function resetAll() {
+  Object.values(groups).forEach(g => { g.delta = {lat:0, lng:0}; applyGroupDelta(g); });
+  setLabel('Posiciones reseteadas');
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TrueSize DC | Comparador con capitales latinoamericanas</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://basemaps.cartocdn.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="panel" aria-label="Controles de comparacion">
+      <header class="brand">
+        <p class="eyebrow">TrueSize DC</p>
+        <h1>DC y su entorno sobre capitales latinoamericanas</h1>
+        <p>Compara Washington D.C., Arlington y el sur de Montgomery County a escala real sobre cualquier capital de América Latina.</p>
+      </header>
+
+      <section class="control-block">
+        <label for="capital-select">Capital destino</label>
+        <select id="capital-select"></select>
+      </section>
+
+      <section class="toolbar" aria-label="Acciones del mapa">
+        <button id="btn-overlay" class="primary" type="button">Superponer DC</button>
+        <button id="btn-capital" type="button">Ir a capital</button>
+        <button id="btn-dc" type="button">Ver DC real</button>
+        <button id="btn-both" type="button">Ver ambos</button>
+        <button id="btn-reset" type="button">Reset</button>
+      </section>
+
+      <section class="control-block">
+        <div class="switch-row">
+          <span>Mostrar subdivisiones</span>
+          <label class="switch">
+            <input id="toggle-subdivisions" type="checkbox" checked>
+            <span></span>
+          </label>
+        </div>
+        <div class="switch-row">
+          <span>Mostrar área real en DC</span>
+          <label class="switch">
+            <input id="toggle-source" type="checkbox" checked>
+            <span></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="Datos de comparacion">
+        <div>
+          <span>Destino</span>
+          <strong id="metric-capital">Quito</strong>
+        </div>
+        <div>
+          <span>Overlay</span>
+          <strong id="metric-overlay">DC + entorno</strong>
+        </div>
+        <div>
+          <span>Corrección</span>
+          <strong id="metric-latitude">por latitud</strong>
+        </div>
+      </section>
+
+      <section class="legend" aria-label="Leyenda">
+        <div><i style="--swatch:#2f80ed"></i>Washington D.C.</div>
+        <div><i style="--swatch:#00a7a7"></i>Arlington County</div>
+        <div><i style="--swatch:#9b51e0"></i>Montgomery County sur</div>
+        <div><i class="dash"></i>Overlay arrastrable</div>
+      </section>
+
+      <footer class="notes">
+        Datos: OpenStreetMap, CARTO, Census TIGERweb y repositorios públicos GeoJSON. La superposición conserva distancias aproximadas en kilómetros desde el centro de DC.
+      </footer>
+    </aside>
+
+    <section class="map-stage" aria-label="Mapa comparativo">
+      <div id="map"></div>
+      <div id="status-badge">Cargando datos geográficos...</div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="./src/app.js"></script>
+</body>
+</html>
