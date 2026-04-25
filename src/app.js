@@ -97,7 +97,7 @@ const elements = {
 };
 
 const state = {
-  selectedCapital: LATAM_CAPITALS[0],
+  selectedCapital: LATAM_CAPITALS.find(capital => capital.id === "santiago"),
   areaGeometries: [],
   subdivisionGeometries: [],
   overlayVisible: true,
