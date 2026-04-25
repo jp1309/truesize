@@ -18,6 +18,11 @@ const LATAM_CAPITALS = [
   { id: "havana", city: "La Habana", country: "Cuba", center: [23.1136, -82.3666], zoom: 11 },
   { id: "santo-domingo", city: "Santo Domingo", country: "República Dominicana", center: [18.4861, -69.9312], zoom: 11 },
   { id: "san-juan", city: "San Juan", country: "Puerto Rico", center: [18.4655, -66.1057], zoom: 12 },
+  { id: "georgetown", city: "Georgetown", country: "Guyana", center: [6.8013, -58.1551], zoom: 12 },
+  { id: "kingston", city: "Kingston", country: "Jamaica", center: [17.9712, -76.7936], zoom: 12 },
+  { id: "port-of-spain", city: "Puerto España", country: "Trinidad y Tobago", center: [10.6549, -61.5019], zoom: 12 },
+  { id: "bridgetown", city: "Bridgetown", country: "Barbados", center: [13.0975, -59.6167], zoom: 13 },
+  { id: "hamilton", city: "Hamilton", country: "Bermuda", center: [32.2948, -64.7814], zoom: 13 },
   { id: "brasilia", city: "Brasília", country: "Brasil", center: [-15.7939, -47.8828], zoom: 10 },
 ];
 
